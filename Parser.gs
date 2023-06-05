@@ -1,6 +1,12 @@
 function parseToObject(headers, values)
 {
   var result = new Object;
+  if (!Array.isArray(headers))
+  {
+    result[headers] = parseValue(values);
+    return result;
+  }
+
   for (var i = 0; i < headers.length; i++) {
     var headerSplit = headers[i].split(".");
     if (headerSplit.length > 1)
@@ -46,5 +52,5 @@ function parseValue(value)
   return value;
 }
 
-//Tests
+
 //Logger.log(JSON.stringify(parseToObject(["rewards", "gold", "squadcoins.min.x","squadcoins.min.y", "squadcoins.max"],[0,1,2,3,4])));
