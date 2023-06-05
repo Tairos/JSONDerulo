@@ -1,2 +1,11 @@
 # JSONDerulo
-JSON Derulo is a tool to create JSONs inside cells of a google sheet from inside content
+Google Apps Script Spreadsheet utils to work with JSONs. Convert from Sheet to JSON and vice versa.
+
+# From sheet to JSON
+
+
+# From JSON to sheet
+
+
+
+
