@@ -44,7 +44,7 @@ function parseInObject(object, keys, value)
 function parseValue(value)
 {
 
-  if (isString(value) && value.startsWith("{") && value.endsWith("}"))
+  if (isStringJSONObject(value) || isStringJSONArray(value))
   {
       return JSON.parse(value);
   }
