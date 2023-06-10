@@ -6,7 +6,7 @@
  * @returns JSON string.
  * @customfunction
 */
-function JSONISE(propertiesRange, valuesRange) {
+function ToJSON(propertiesRange, valuesRange) {
   var properties = Array.isArray(propertiesRange)?propertiesRange[0]:propertiesRange;
   var values = Array.isArray(valuesRange)?valuesRange[0]:valuesRange;
 
@@ -20,6 +20,33 @@ function JSONISE(propertiesRange, valuesRange) {
 
   return JSON.stringify(result);
 }
+//Logger.log(ToJSON("min",0));
+//Logger.log(ToJSON([["min", "max"]],[[0,0]]));
+//Logger.log(ToJSON([["rewards", "gold", "squadcoins.min.x","squadcoins.min.y", "squadcoins.max"]],[[0,1,2,3,4]]));
+
+/**
+* Creates a JSON list value based on parameters passed.
+* @param {any[]} params Range of values and/or values
+* @returns JSON string.
+* @customfunction
+*/
+function ToJSONList(...params) {
+  if (params.length == 0)
+  {
+    return "[]";
+  }
+
+  var flatParams = params.flat(9999);
+
+  var finalArr = flatParams.filter(n => {
+    return (!isString(n) && !Number.isNaN(n)) | (isString(n) && n.length > 0);
+ } );
+
+   return JSON.stringify(finalArr.map(v => parseValue(v)));
+}
+//Logger.log(ToJSONList("param1","param2","param3", 1,2,3));
+//Logger.log(ToJSONList([[[0.9,0.5,""]]]));
+
 
 function validateProperties(properties)
 {
@@ -31,6 +58,3 @@ function validateProperties(properties)
     }
 }
 
-//Logger.log(JSONISE("min",0));
-//Logger.log(JSONISE([["min", "max"]],[[0,0]]));
-//Logger.log(JSONISE([["rewards", "gold", "squadcoins.min.x","squadcoins.min.y", "squadcoins.max"]],[[0,1,2,3,4]]));
