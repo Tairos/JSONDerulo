@@ -74,8 +74,8 @@ test('dates use the spreadsheet time zone in Apps Script', () => {
 
 test('several rows of values give a list of objects', () => {
   assert.strictEqual(
-    ToJSON([['_rarity', '_weight']], [['Common', 160], ['Rare', 650], ['', ''], ['Epic', 160]]),
-    '[{"_rarity":"Common","_weight":160},{"_rarity":"Rare","_weight":650},{"_rarity":"Epic","_weight":160}]'
+    ToJSON([['_size', '_weight']], [['Small', 160], ['Medium', 650], ['', ''], ['Large', 160]]),
+    '[{"_size":"Small","_weight":160},{"_size":"Medium","_weight":650},{"_size":"Large","_weight":160}]'
   );
   assert.strictEqual(ToJSON([['a']], [[1], ['']]), '[{"a":1}]');
 });
@@ -112,10 +112,10 @@ test('results over the 50,000 character cell limit give a clear error', () => {
 
 test('a large list just under the limit works', () => {
   const items = Array.from({ length: 600 }, (_, i) =>
-    [JSON.stringify({ id: 'item_' + i, weight: i, rarity: 'Legendary', tags: ['a', 'b'] })]);
+    [JSON.stringify({ id: 'item_' + i, weight: i, rarity: 'Huge', tags: ['a', 'b'] })]);
   const out = JSON.parse(ToJSONList(items));
   assert.strictEqual(out.length, 600);
-  assert.deepStrictEqual(out[599], { id: 'item_599', weight: 599, rarity: 'Legendary', tags: ['a', 'b'] });
+  assert.deepStrictEqual(out[599], { id: 'item_599', weight: 599, rarity: 'Huge', tags: ['a', 'b'] });
 });
 
 test('a single range with property names in the first row', () => {

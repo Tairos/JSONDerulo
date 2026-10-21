@@ -1,12 +1,12 @@
 # JSONDerulo
 Edit JSON in Google Sheets. JSONDerulo turns spreadsheet rows into JSON with two custom functions, and turns JSON back into an editable sheet with one menu click.
 
-It's made for config files: game balancing, rewards, item tables and so on. Those are easier to read and tweak in a spreadsheet, but the program that uses them needs JSON.
+It's made for config files: game balancing, stock, item tables and so on. Those are easier to read and tweak in a spreadsheet, but the program that uses them needs JSON.
 
 ```
         Sheet                                   JSON
-| squadcoins.type | squadcoins.max | gold |
-| Plastic         | 4              | 2    |   →   {"squadcoins":{"type":"Plastic","max":4},"gold":2}
+| box.type | box.max | price |
+| Plastic         | 4              | 2    |   →   {"box":{"type":"Plastic","max":4},"price":2}
 ```
 
 - [Features](#features)
@@ -88,10 +88,10 @@ Builds a JSON object from a row of property names and a row of values.
 
 | | A | B | C | D |
 |---|---|---|---|---|
-| 1 | squadcoins.type | squadcoins.min.x | squadcoins.min.y | gold |
+| 1 | box.type | box.min.x | box.min.y | price |
 | 2 | Plastic | 3 | 6 | 2 |
 
-`=ToJSON(A1:D1, A2:D2)` → `{"squadcoins":{"type":"Plastic","min":{"x":3,"y":6}},"gold":2}`
+`=ToJSON(A1:D1, A2:D2)` → `{"box":{"type":"Plastic","min":{"x":3,"y":6}},"price":2}`
 
 - **Dots nest objects:** `a.b.c` puts the value in `{"a":{"b":{"c":...}}}`.
 - **One range works too:** `=ToJSON(A1:D2)` takes the property names from the first row and the values from the rows below.
@@ -109,11 +109,11 @@ Any cell holding JSON is used as JSON, so formulas can be combined:
 
 | | A | B | C | D |
 |---|---|---|---|---|
-| 1 | _rarity | _weight | | rarities |
-| 2 | Common | 160 | `=ToJSON($A$1:$B$1, A2:B2)` | `=ToJSONList(C2:C3)` |
-| 3 | Rare | 650 | `=ToJSON($A$1:$B$1, A3:B3)` | |
+| 1 | _size | _weight | | sizes |
+| 2 | Small | 160 | `=ToJSON($A$1:$B$1, A2:B2)` | `=ToJSONList(C2:C3)` |
+| 3 | Medium | 650 | `=ToJSON($A$1:$B$1, A3:B3)` | |
 
-D2 → `[{"_rarity":"Common","_weight":160},{"_rarity":"Rare","_weight":650}]`. In this case `=ToJSON(A1:B3)` gives the same result in one formula.
+D2 → `[{"_size":"Small","_weight":160},{"_size":"Medium","_weight":650}]`. In this case `=ToJSON(A1:B3)` gives the same result in one formula.
 
 ## How cell values are read
 | Cell | JSON |
@@ -133,14 +133,14 @@ Open **JSONDerulo → Create sheet from JSON**, then paste the JSON or load it f
 
 | | A | B | C | D | E | F | G |
 |---|---|---|---|---|---|---|---|
-| 1 | JSON | value.pp | value.Rewards | type | value.Rewards | items | … |
-| 2 | `=ToJSON(B1:D2)` | 7 | `=ToJSONList(F2:F3)` | PackReward | | `=ToJSON(…)` | … |
+| 1 | JSON | value.id | value.Items | type | value.Items | items | … |
+| 2 | `=ToJSON(B1:D2)` | 7 | `=ToJSONList(F2:F3)` | Bundle | | `=ToJSON(…)` | … |
 | 3 | | | | | | `=ToJSON(…)` | … |
 
 - **Objects** become a block of columns: property names in row 1 (nested objects use dots), values in row 2, rebuilt with `=ToJSON(<block>)`.
 - **Lists of objects with the same properties** become a table, one row per object, rebuilt with a single `=ToJSON(<table>)`. A list of 5,000 items takes a handful of columns.
 - **Other lists** become a column (`items`) from row 2 down, rebuilt with `=ToJSONList(<column>)`.
-- **Nested objects and lists** get their own block further right. The cell that holds them gets the formula, and the column before the block has its path in row 1 (e.g. `value.Rewards[0]`).
+- **Nested objects and lists** get their own block further right. The cell that holds them gets the formula, and the column before the block has its path in row 1 (e.g. `value.Items[0]`).
 - **Text stays text:** text cells use the plain text format, and text that would read back as something else (`"1"`, `"true"`, `"null"`, `""`, text starting with `=`) is written in quotes.
 - **Property names that can't be headers** (containing a dot, empty, or starting with `=` or `'`) keep their object as JSON text in one cell.
 

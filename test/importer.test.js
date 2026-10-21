@@ -15,13 +15,13 @@ function roundTrip(json) {
 }
 
 const SHEET_JSONS = {
-  'Derulo Test1': '{"squadcoins":{"type":"Plastic","min":{"x":3,"y":6},"max":4},"rewards":1,"gold":2}',
-  'Derulo Test2': '[{"_rarity":"Common","_weight":160},{"_rarity":"Rare","_weight":650},{"_rarity":"Epic","_weight":160},{"_rarity":"Legendary","_weight":30}]',
-  'Derulo Test3': '[7,{"a":1,"b":"michi"},"a",["a",3,"b"]]',
-  'Derulo Test4': '{"value":{"pp":7,"Rewards":[{"value":{"_tileNodeTypeData":"kingChestM","_canBecomeFloating":false,"_alwaysSpawnAsFloating":true},"type":"TileNodeReward"},{"value":{"Value":{"Amount":50000,"Currency":"g"},"OperationBehaviour":"AllowOverflow"},"type":"CurrencyReward"},{"value":{"Value":{"Amount":60000,"Currency":"r"},"OperationBehaviour":"AllowOverflow"},"type":"CurrencyReward"},{"value":{"Reference":"pvp-nrg","Amount":8,"Mode":"CapNormalAndOverflowAsBonus"},"type":"EnergyReward"}],"pinaco":5},"type":"PackReward"}',
-  'Derulo Test5': '[[7,3,1],{"a":1,"b":"michi","v1":[1,[1.2,1.5]],"p":"p","v2":[1,2]},"a",["a",3,"b"]]',
-  'ImportedJSON (1)': '{"a":"1","b":"michi"}',
-  'ImportedJSON (5)': '{"lastJudgementCancelledDefenseReduction_duration":5,"lastJudgementCancelledDefenseReduction_amount":0.2,"lastJudgement_area_radius":10,"lastJudgement_damage_percentage":4,"lastJudgement_cooldown":30,"lastJudgementSpawnPool":{"value":{"_value":[{"SquadId":"pillarwingedsunSquad","Chance":1}]},"type":"SpawnUnitDataListConfigurableValueConfig"}}',
+  'Derulo Test1': '{"box":{"type":"Plastic","min":{"x":3,"y":6},"max":4},"stock":1,"price":2}',
+  'Derulo Test2': '[{"_size":"Small","_weight":160},{"_size":"Medium","_weight":650},{"_size":"Large","_weight":160},{"_size":"Huge","_weight":30}]',
+  'Derulo Test3': '[7,{"a":1,"b":"hello"},"a",["a",3,"b"]]',
+  'Derulo Test4': '{"value":{"id":7,"Items":[{"value":{"_sku":"chair-m","_isFragile":false,"_giftWrap":true},"type":"FurnitureItem"},{"value":{"Value":{"Amount":50000,"Currency":"g"},"Rounding":"RoundUp"},"type":"GiftCard"},{"value":{"Value":{"Amount":60000,"Currency":"r"},"Rounding":"RoundUp"},"type":"GiftCard"},{"value":{"Reference":"coupon-8","Amount":8,"Mode":"PercentOff"},"type":"Discount"}],"count":5},"type":"Bundle"}',
+  'Derulo Test5': '[[7,3,1],{"a":1,"b":"hello","v1":[1,[1.2,1.5]],"p":"p","v2":[1,2]},"a",["a",3,"b"]]',
+  'ImportedJSON (1)': '{"a":"1","b":"hello"}',
+  'ImportedJSON (5)': '{"retry_delay":5,"retry_backoff":0.2,"timeout":10,"max_retries":4,"cache_ttl":30,"servers":{"value":{"_value":[{"Host":"eu-west","Weight":1}]},"type":"ServerListConfig"}}',
 };
 
 for (const [name, json] of Object.entries(SHEET_JSONS)) {
@@ -29,24 +29,24 @@ for (const [name, json] of Object.entries(SHEET_JSONS)) {
 }
 
 test('layout of a simple object matches the original sheets', () => {
-  const layout = roundTrip({ a: 1, b: 'michi' });
-  assert.deepStrictEqual(plain(layout.values), [['JSON', 'a', 'b'], ['=ToJSON(B1:C2)', 1, 'michi']]);
+  const layout = roundTrip({ a: 1, b: 'hello' });
+  assert.deepStrictEqual(plain(layout.values), [['JSON', 'a', 'b'], ['=ToJSON(B1:C2)', 1, 'hello']]);
 });
 
 test('a list of objects with the same properties becomes a table', () => {
   const layout = roundTrip(JSON.parse(SHEET_JSONS['Derulo Test2']));
   assert.deepStrictEqual(plain(layout.values), [
-    ['JSON', '_rarity', '_weight'],
-    ['=ToJSON(B1:C5)', 'Common', 160],
-    ['', 'Rare', 650],
-    ['', 'Epic', 160],
-    ['', 'Legendary', 30],
+    ['JSON', '_size', '_weight'],
+    ['=ToJSON(B1:C5)', 'Small', 160],
+    ['', 'Medium', 650],
+    ['', 'Large', 160],
+    ['', 'Huge', 30],
   ]);
 });
 
 test('nested blocks are labelled with their path', () => {
-  const layout = roundTrip({ value: { Rewards: [{ a: 1 }, 'x'] } });
-  assert.deepStrictEqual(plain(layout.values[0]), ['JSON', 'value.Rewards', 'value.Rewards', 'items', 'value.Rewards[0]', 'a']);
+  const layout = roundTrip({ value: { Items: [{ a: 1 }, 'x'] } });
+  assert.deepStrictEqual(plain(layout.values[0]), ['JSON', 'value.Items', 'value.Items', 'items', 'value.Items[0]', 'a']);
   assert.deepStrictEqual(plain(layout.values[1]), ['=ToJSON(B1:B2)', '=ToJSONList(D2:D3)', '', '=ToJSON(F1:F2)', '', 1]);
 });
 
@@ -109,13 +109,13 @@ test('big JSON: a 5000-row table stays narrow', () => {
   assert.throws(() => simulate(ctx, layout).value(2, 1), /holds at most 50000/);
 });
 
-test('big JSON: 300 mixed rewards', () => {
+test('big JSON: 300 mixed stock', () => {
   const kinds = [
-    i => ({ value: { _tileNodeTypeData: 'chest' + i, _canBecomeFloating: i % 2 == 0 }, type: 'TileNodeReward' }),
-    i => ({ value: { Value: { Amount: i * 100, Currency: 'g' } }, type: 'CurrencyReward' }),
-    i => ({ value: { Reference: 'nrg', Amount: i, Tags: ['a', String(i)] }, type: 'EnergyReward' }),
+    i => ({ value: { _sku: 'chair' + i, _isFragile: i % 2 == 0 }, type: 'FurnitureItem' }),
+    i => ({ value: { Value: { Amount: i * 100, Currency: 'g' } }, type: 'GiftCard' }),
+    i => ({ value: { Reference: 'coupon', Amount: i, Tags: ['a', String(i)] }, type: 'Discount' }),
   ];
-  roundTrip({ value: { Rewards: Array.from({ length: 300 }, (_, i) => kinds[i % 3](i)) }, type: 'PackReward' });
+  roundTrip({ value: { Items: Array.from({ length: 300 }, (_, i) => kinds[i % 3](i)) }, type: 'Bundle' });
 });
 
 test('column letters', () => {

@@ -11,7 +11,7 @@
 //   =ToJSONList(<column>).
 // - Nested objects and lists get their own block further right, and the cell
 //   that holds them gets the formula. The empty column before each nested
-//   block has its path in row 1, e.g. value.Rewards[0].
+//   block has its path in row 1, e.g. value.Items[0].
 //
 // Every formula takes a single range, so it works with both "," and ";"
 // argument separators (the spreadsheet locale decides which one is used).
