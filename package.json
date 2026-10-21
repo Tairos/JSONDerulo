@@ -5,7 +5,7 @@
   "private": true,
   "license": "GPL-3.0",
   "scripts": {
-    "test": "node --test \"test/*.test.js\"",
+    "test": "node --test test/*.test.js",
     "login": "clasp login",
     "push": "clasp push",
     "pull": "clasp pull"
