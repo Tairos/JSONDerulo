@@ -1,0 +1,16 @@
+{
+  "name": "jsonderulo",
+  "version": "1.0.0",
+  "description": "Google Sheets custom functions to convert between sheet rows and JSON.",
+  "private": true,
+  "license": "GPL-3.0",
+  "scripts": {
+    "test": "node --test \"test/*.test.js\"",
+    "login": "clasp login",
+    "push": "clasp push",
+    "pull": "clasp pull"
+  },
+  "devDependencies": {
+    "@google/clasp": "3.4.1"
+  }
+}
