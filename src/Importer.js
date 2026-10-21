@@ -1,102 +1,114 @@
 // Lays a JSON value out as a grid of cells whose formulas rebuild that same
 // JSON. This file only builds the grid; SheetController.js writes it.
 //
-// Layout, left to right:
-// - A1 is a label and A2 holds the result: the formula that rebuilds the JSON.
-// - An object is a block of columns: property names in row 1, values in row 2,
-//   rebuilt with =ToJSON(<block>).
-// - A list of objects that all have the same properties is a table: one row
-//   per object, rebuilt with =ToJSON(<table>).
-// - Any other list is one column of items from row 2 down, rebuilt with
-//   =ToJSONList(<column>).
-// - Nested objects and lists get their own block further right, and the cell
-//   that holds them gets the formula. The empty column before each nested
-//   block has its path in row 1, e.g. value.Items[0].
+// The whole JSON goes on one row, so the row can be dragged down to make more
+// items with the same structure: titles in row 1, headers in row 2 and the
+// first item in row 3. Left to right:
+// - A3 holds the result: the formula that rebuilds the JSON.
+// - An object is a block of columns (nested objects use dotted headers),
+//   rebuilt with =ToJSON(B$2:D$2, B3:D3).
+// - A list is a block of columns headed [0], [1]..., rebuilt with
+//   =ToJSONList(F3:H3).
+// - Nested objects and lists get their own block further right, after an
+//   empty column, titled with their path (e.g. "↳ value.Items[0]"). The cell
+//   that holds them gets the formula.
+// - Property names that can't be plain headers (with dots, empty, or starting
+//   with = ' or ") are written in quotes, which ToJSON reads as one literal key.
 //
-// Every formula takes a single range, so it works with both "," and ";"
-// argument separators (the spreadsheet locale decides which one is used).
+// Headers are referenced with a fixed row ($2) and values with a relative
+// one, so formulas copied down read their own row.
 
-function layoutJSON(json) {
-  var grid = { cells: {}, textCells: [], rows: 2, columns: 1, nextColumn: 2 };
-  setCell(grid, 1, 1, "JSON", true);
+var TITLE_ROW = 1;
+var HEADER_ROW = 2;
+var VALUE_ROW = 3;
 
-  if (isNestedObject(json) || isNestedList(json)) {
-    writeInto(grid, 2, 1, json, "", true);
+// separator is the formula argument separator: "," or ";" depending on the
+// spreadsheet locale (see formulaSeparator).
+function layoutJSON(json, separator) {
+  var grid = { cells: {}, textCells: [], rows: VALUE_ROW, columns: 1, nextColumn: 2, separator: separator || "," };
+  setCell(grid, HEADER_ROW, 1, "JSON", true);
+
+  if (isNestedValue(json)) {
+    writeInto(grid, 1, json, "", true);
   }
   else {
-    setCell(grid, 2, 1, checkTextLength(JSON.stringify(json)), true);
+    setCell(grid, VALUE_ROW, 1, checkTextLength(JSON.stringify(json)), true);
   }
 
   return finishGrid(grid);
 }
 
-function writeInto(grid, row, column, value, path, isRoot) {
+// Writes the value into the value row of the given column. Nested objects and
+// lists get a block of their own and the column gets the formula.
+function writeInto(grid, column, value, path, isRoot) {
   if (isNestedObject(value)) {
-    writeObject(grid, row, column, value, path, isRoot);
-  }
-  else if (isTable(value)) {
-    writeTable(grid, row, column, value, path, isRoot);
+    writeObject(grid, column, value, path, isRoot);
   }
   else if (isNestedList(value)) {
-    writeList(grid, row, column, value, path, isRoot);
+    writeList(grid, column, value, path, isRoot);
   }
   else {
-    writeScalar(grid, row, column, value);
+    writeScalar(grid, VALUE_ROW, column, value);
   }
 }
 
-function writeObject(grid, row, column, object, path, isRoot) {
+function writeObject(grid, column, object, path, isRoot) {
   var entries = flattenObject(object, "");
   var start = allocateBlock(grid, entries.length, path, isRoot);
+  var end = start + entries.length - 1;
 
   for (var i = 0; i < entries.length; i++) {
-    setCell(grid, 1, start + i, entries[i].path, true);
-    if (!isNestedValue(entries[i].value)) {
-      writeScalar(grid, 2, start + i, entries[i].value);
-    }
+    setCell(grid, HEADER_ROW, start + i, entries[i].header, true);
   }
 
-  setCell(grid, row, column, "=ToJSON(" + rangeA1(1, start, 2, start + entries.length - 1) + ")", false);
+  var headers = columnA1(start) + "$" + HEADER_ROW + ":" + columnA1(end) + "$" + HEADER_ROW;
+  var values = rangeA1(VALUE_ROW, start, VALUE_ROW, end);
+  setCell(grid, VALUE_ROW, column, "=ToJSON(" + headers + grid.separator + " " + values + ")", false);
 
   for (var i = 0; i < entries.length; i++) {
-    if (isNestedValue(entries[i].value)) {
-      writeInto(grid, 2, start + i, entries[i].value, joinPath(path, entries[i].path), false);
-    }
+    writeInto(grid, start + i, entries[i].value, joinPath(path, entries[i].label), false);
   }
 }
 
-function writeTable(grid, row, column, list, path, isRoot) {
-  var rows = list.map(object => flattenObject(object, ""));
-  var start = allocateBlock(grid, rows[0].length, path, isRoot);
-
-  for (var c = 0; c < rows[0].length; c++) {
-    setCell(grid, 1, start + c, rows[0][c].path, true);
-    for (var r = 0; r < rows.length; r++) {
-      writeScalar(grid, 2 + r, start + c, rows[r][c].value);
-    }
-  }
-
-  setCell(grid, row, column, "=ToJSON(" + rangeA1(1, start, rows.length + 1, start + rows[0].length - 1) + ")", false);
-}
-
-function writeList(grid, row, column, list, path, isRoot) {
-  var start = allocateBlock(grid, 1, path, isRoot);
-  setCell(grid, 1, start, "items", true);
+function writeList(grid, column, list, path, isRoot) {
+  var start = allocateBlock(grid, list.length, path, isRoot);
 
   for (var i = 0; i < list.length; i++) {
-    if (!isNestedValue(list[i])) {
-      writeScalar(grid, 2 + i, start, list[i]);
-    }
+    setCell(grid, HEADER_ROW, start + i, "[" + i + "]", true);
   }
 
-  setCell(grid, row, column, "=ToJSONList(" + rangeA1(2, start, list.length + 1, start) + ")", false);
+  setCell(grid, VALUE_ROW, column, "=ToJSONList(" + rangeA1(VALUE_ROW, start, VALUE_ROW, start + list.length - 1) + ")", false);
 
   for (var i = 0; i < list.length; i++) {
-    if (isNestedValue(list[i])) {
-      writeInto(grid, 2 + i, start, list[i], path + "[" + i + "]", false);
-    }
+    writeInto(grid, start + i, list[i], path + "[" + i + "]", false);
   }
 }
+
+// Locales that write 1,5 instead of 1.5 separate formula arguments with ";".
+function formulaSeparator(locale) {
+  return usesDecimalComma(locale) ? ";" : ",";
+}
+
+function usesDecimalComma(locale) {
+  var tag = String(locale || "en_US").replace(/_/g, "-");
+  try {
+    if (Intl.NumberFormat.supportedLocalesOf([tag]).length > 0) {
+      return new Intl.NumberFormat(tag).format(1.5).indexOf(",") != -1;
+    }
+  }
+  catch (e) {
+    // Unknown tag: fall back to the language list below.
+  }
+
+  var language = tag.split("-")[0].toLowerCase();
+  return DECIMAL_COMMA_LANGUAGES.indexOf(language) != -1;
+}
+
+var DECIMAL_COMMA_LANGUAGES = [
+  "az", "be", "bg", "bs", "ca", "cs", "da", "de", "el", "es", "et", "eu", "fi", "fr", "gl", "hr", "hu",
+  "hy", "id", "is", "it", "ka", "kk", "lt", "lv", "mk", "nb", "nl", "nn", "no", "pl", "pt", "ro", "ru",
+  "sk", "sl", "sq", "sr", "sv", "tr", "uk", "uz", "vi",
+];
 
 // Writes a value so that parseValue reads back exactly the same value.
 // Text cells get the plain text number format, so Sheets keeps "007" or
@@ -112,8 +124,7 @@ function writeScalar(grid, row, column, value) {
     setCell(grid, row, column, checkTextLength(needsQuotes(value) ? JSON.stringify(value) : value), true);
   }
   else {
-    // Empty objects and lists, and objects whose property names can't be
-    // headers, are written as JSON text.
+    // Empty objects and lists are written as JSON text.
     setCell(grid, row, column, checkTextLength(JSON.stringify(value)), true);
   }
 }
@@ -129,14 +140,20 @@ function needsQuotes(text) {
     /^[\[{"]/.test(text.trim());
 }
 
-// A property name can be a header if it's not empty, has no dots (they would
-// nest it) and doesn't start with a character Sheets treats specially.
+// A property name can be a plain header if it's not empty, has no dots (they
+// would nest it) and doesn't start with a character that Sheets or ToJSON
+// treats specially. Other names are written in quotes.
 function isHeaderSafe(key) {
-  return key.length > 0 && key.indexOf(".") == -1 && !/^[=']/.test(key);
+  return key.length > 0 && key.indexOf(".") == -1 && !/^[=']/.test(key) && !/^\s*"/.test(key);
 }
 
 function isNestedObject(value) {
-  return isObject(value) && Object.keys(value).length > 0 && Object.keys(value).every(isHeaderSafe);
+  return isObject(value) && Object.keys(value).length > 0;
+}
+
+// Objects that can be merged into their parent's headers with dots.
+function isFlattenable(value) {
+  return isNestedObject(value) && Object.keys(value).every(isHeaderSafe);
 }
 
 function isNestedList(value) {
@@ -147,43 +164,24 @@ function isNestedValue(value) {
   return isNestedObject(value) || isNestedList(value);
 }
 
-// Turns {"a":{"b":1},"c":2} into [{path:"a.b", value:1}, {path:"c", value:2}].
+// Turns {"a":{"b":1},"c":2} into headers a.b and c with their values.
+// The label is the readable path used for nested blocks.
 function flattenObject(object, prefix) {
   var entries = [];
   for (var key of Object.keys(object)) {
     var path = prefix + key;
-    if (isNestedObject(object[key])) {
+    if (!isHeaderSafe(key)) {
+      // Only the top level of a block can get here: flattenable objects have no such keys.
+      entries.push({ header: JSON.stringify(key), label: prefix + JSON.stringify(key), value: object[key] });
+    }
+    else if (isFlattenable(object[key])) {
       entries = entries.concat(flattenObject(object[key], path + "."));
     }
     else {
-      entries.push({ path: path, value: object[key] });
+      entries.push({ header: path, label: path, value: object[key] });
     }
   }
   return entries;
-}
-
-// A list of two or more objects with the same properties, in the same order,
-// and no nested lists or objects inside.
-function isTable(value) {
-  if (!Array.isArray(value) || value.length < 2 || !value.every(isNestedObject)) {
-    return false;
-  }
-
-  var paths = null;
-  for (var object of value) {
-    var entries = flattenObject(object, "");
-    if (entries.some(entry => isNestedValue(entry.value))) {
-      return false;
-    }
-
-    var objectPaths = entries.map(entry => entry.path).join("\n");
-    if (paths !== null && objectPaths !== paths) {
-      return false;
-    }
-    paths = objectPaths;
-  }
-
-  return true;
 }
 
 function joinPath(path, key) {
@@ -191,15 +189,17 @@ function joinPath(path, key) {
 }
 
 // Reserves the columns for a block and returns the first one. Nested blocks
-// get an extra column before them, labelled with their path.
+// get an empty column before them and their path as the title.
 function allocateBlock(grid, width, path, isRoot) {
   if (!isRoot) {
-    setCell(grid, 1, grid.nextColumn, path, true);
     grid.nextColumn++;
   }
 
   var start = grid.nextColumn;
   grid.nextColumn += width;
+  if (!isRoot) {
+    setCell(grid, TITLE_ROW, start, "↳ " + path, true);
+  }
   return start;
 }
 

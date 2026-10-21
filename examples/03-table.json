@@ -1,0 +1,34 @@
+[
+  {
+    "_size": "Small",
+    "_weight": 160,
+    "shipping": {
+      "days": 2,
+      "express": false
+    }
+  },
+  {
+    "_size": "Medium",
+    "_weight": 650,
+    "shipping": {
+      "days": 3,
+      "express": false
+    }
+  },
+  {
+    "_size": "Large",
+    "_weight": 160,
+    "shipping": {
+      "days": 5,
+      "express": true
+    }
+  },
+  {
+    "_size": "Huge",
+    "_weight": 30,
+    "shipping": {
+      "days": 7,
+      "express": true
+    }
+  }
+]

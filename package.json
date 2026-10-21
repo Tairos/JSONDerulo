@@ -8,6 +8,7 @@
     "test": "node --test test/*.test.js",
     "login": "clasp login",
     "push": "clasp push",
+    "push:dev": "node scripts/build-dev.js && clasp -P build/dev push --force",
     "pull": "clasp pull"
   },
   "devDependencies": {

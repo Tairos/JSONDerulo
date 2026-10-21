@@ -129,3 +129,11 @@ test('the text null is null', () => {
   assert.strictEqual(ToJSON([['a', 'b']], [['null', '"null"']]), '{"a":null,"b":"null"}');
   assert.strictEqual(ToJSONList('null'), '[null]');
 });
+
+test('a header in quotes is one literal key', () => {
+  assert.strictEqual(ToJSON([['"a.b"', 'c']], [[1, 2]]), '{"a.b":1,"c":2}');
+  assert.strictEqual(ToJSON([['""']], [[1]]), '{"":1}');
+  assert.strictEqual(ToJSON([['"\\"x\\""']], [[1]]), '{"\\"x\\"":1}');
+  assert.strictEqual(ToJSON([['"a.b"', 'a']], [[1, 2]]), '{"a.b":1,"a":2}');
+  assert.throws(() => ToJSON([['"a"', 'a']], [[1, 2]]), /set more than once/);
+});

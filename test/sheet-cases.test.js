@@ -14,7 +14,8 @@ test('v1: flat objects', () => {
     ToJSON([['stock', 'price', 'box']], [[1, 2, ToJSON([['min', 'max']], [[0, 0]])]]),
     '{"stock":1,"price":2,"box":{"min":0,"max":0}}'
   );
-  assert.strictEqual(ToJSON([["2'", '"0"']], [[5, 6]]), '{"2\'":5,"\\"0\\"":6}');
+  // A header in quotes is a literal key, so "0" is the key 0 (this used to keep the quotes).
+  assert.strictEqual(ToJSON([["2'", '"0"']], [[5, 6]]), '{"0":6,"2\'":5}');
 });
 
 test('v2: dotted headers build nested objects', () => {

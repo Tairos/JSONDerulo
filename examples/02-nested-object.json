@@ -1,0 +1,19 @@
+{
+  "box": {
+    "type": "Plastic",
+    "min": {
+      "x": 3,
+      "y": 6
+    },
+    "max": 4
+  },
+  "stock": 120,
+  "price": 2,
+  "supplier": {
+    "name": "Acme",
+    "contact": {
+      "email": "sales@example.com",
+      "phone": "+34 600 000 000"
+    }
+  }
+}

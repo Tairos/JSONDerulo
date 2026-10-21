@@ -1,7 +1,7 @@
 # JSONDerulo
 Edit JSON in Google Sheets. JSONDerulo turns spreadsheet rows into JSON with two custom functions, and turns JSON back into an editable sheet with one menu click.
 
-It's made for config files: game balancing, stock, item tables and so on. Those are easier to read and tweak in a spreadsheet, but the program that uses them needs JSON.
+It's made for config files: game balancing, product catalogs, item lists and so on. Those are easier to read and tweak in a spreadsheet, but the program that uses them needs JSON.
 
 ```
         Sheet                                   JSON
@@ -13,6 +13,7 @@ It's made for config files: game balancing, stock, item tables and so on. Those 
 - [Setup](#setup)
 - [From sheet to JSON](#from-sheet-to-json)
 - [From JSON to sheet](#from-json-to-sheet)
+- [Example JSONs](#example-jsons)
 - [Limits](#limits)
 - [Development](#development)
 
@@ -20,9 +21,10 @@ It's made for config files: game balancing, stock, item tables and so on. Those 
 - **`=ToJSON(...)`** builds an object, or a list of objects, from a header row and value rows. Dots in headers nest objects (`value.Value.Amount`).
 - **`=ToJSONList(...)`** builds a list from cells and ranges.
 - **Formulas nest:** a cell holding JSON, such as the result of another `ToJSON`, goes in as JSON, so any shape can be built.
-- **JSONDerulo → Create sheet from JSON** imports a JSON into a new tab, already wired with the formulas that rebuild it. Edit the values, and A2 has the updated JSON.
-- **Round trips:** importing a JSON and reading A2 gives back exactly the same JSON, including text like `"007"`, `"true"` and `""`, `null`, and empty objects and lists.
-- **Locale-safe:** generated formulas take a single range, so they work whether the spreadsheet uses `,` or `;` between function arguments.
+- **JSONDerulo → Create sheet from JSON** imports a JSON into a new tab, all on one row and already wired with the formulas that rebuild it. Edit the values, and A3 has the updated JSON.
+- **A database of similar JSONs:** drag that row down to get more items with the same structure, one JSON per row.
+- **Round trips:** importing a JSON and reading A3 gives back exactly the same JSON, including text like `"007"`, `"true"` and `""`, `null`, and empty objects and lists.
+- **Locale-aware:** generated formulas use `,` or `;` between arguments, whichever the spreadsheet's locale expects.
 - **Clear errors** for conflicting headers, results too big for a cell, and invalid JSON, instead of silently losing data.
 
 # Setup
@@ -94,6 +96,7 @@ Builds a JSON object from a row of property names and a row of values.
 `=ToJSON(A1:D1, A2:D2)` → `{"box":{"type":"Plastic","min":{"x":3,"y":6}},"price":2}`
 
 - **Dots nest objects:** `a.b.c` puts the value in `{"a":{"b":{"c":...}}}`.
+- **Quotes keep a header literal:** `"a.b"` (typed with the quotes) is the single key `a.b`, and `""` is the empty key.
 - **One range works too:** `=ToJSON(A1:D2)` takes the property names from the first row and the values from the rows below.
 - **Several rows give a list:** `=ToJSON(A1:D1, A2:D10)` returns one object per row and skips empty rows.
 - **Properties and values can also be columns:** `=ToJSON(A1:A4, B1:B4)`.
@@ -129,25 +132,52 @@ D2 → `[{"_size":"Small","_weight":160},{"_size":"Medium","_weight":650}]`. In 
 | empty | `""` in `ToJSON`, skipped in `ToJSONList` |
 
 # From JSON to sheet
-Open **JSONDerulo → Create sheet from JSON**, then paste the JSON or load it from a file. You get a new tab (`ImportedJSON (n)`, or the name you give it), and A2 rebuilds the JSON:
+Open **JSONDerulo → Create sheet from JSON**, then paste the JSON or load it from a file. You get a new tab (`ImportedJSON (n)`, or the name you give it) with the **whole JSON on row 3**, and A3 rebuilds it. For `{"value":{"id":7,"Items":[{"name":"chair","price":40},{"code":"coupon-8","off":8}]},"type":"Bundle"}`:
 
-| | A | B | C | D | E | F | G |
-|---|---|---|---|---|---|---|---|
-| 1 | JSON | value.id | value.Items | type | value.Items | items | … |
-| 2 | `=ToJSON(B1:D2)` | 7 | `=ToJSONList(F2:F3)` | Bundle | | `=ToJSON(…)` | … |
-| 3 | | | | | | `=ToJSON(…)` | … |
+| | A | B | C | D | E | F | G | H | I | J | K | L | M |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | | | | | | *↳ value.Items* | | | *↳ value.Items[0]* | | | *↳ value.Items[1]* | |
+| 2 | **JSON** | **value.id** | **value.Items** | **type** | | **[0]** | **[1]** | | **name** | **price** | | **code** | **off** |
+| 3 | `=ToJSON(B$2:D$2, B3:D3)` | 7 | `=ToJSONList(F3:G3)` | Bundle | | `=ToJSON(I$2:J$2, I3:J3)` | `=ToJSON(L$2:M$2, L3:M3)` | | chair | 40 | | coupon-8 | 8 |
 
-- **Objects** become a block of columns: property names in row 1 (nested objects use dots), values in row 2, rebuilt with `=ToJSON(<block>)`.
-- **Lists of objects with the same properties** become a table, one row per object, rebuilt with a single `=ToJSON(<table>)`. A list of 5,000 items takes a handful of columns.
-- **Other lists** become a column (`items`) from row 2 down, rebuilt with `=ToJSONList(<column>)`.
-- **Nested objects and lists** get their own block further right. The cell that holds them gets the formula, and the column before the block has its path in row 1 (e.g. `value.Items[0]`).
+Every block has the same three parts: a grey **title** in row 1 saying where it comes from, bold **headers** in row 2 (what `ToJSON` reads), and the **values** in row 3.
+
+- **Objects** become a block of columns (nested objects use dotted headers), rebuilt with `=ToJSON(<headers>, <values>)`.
+- **Lists** become a block of columns headed `[0]`, `[1]`…, rebuilt with `=ToJSONList(<values>)`.
+- **Nested objects and lists** get their own block further right, after an empty column, titled with their path (e.g. `↳ value.Items[0]`). The cell that holds them gets the formula that reads that block.
+
+## More items with the same structure
+Since the whole JSON is on one row, select row 3 and drag it down (or copy and paste it into the rows below). Each new row is another JSON with the same structure, and its A cell rebuilds it:
+- **Headers stay fixed** (`B$2:D$2`) and **values follow the row** (`B4:D4`), so every row reads its own values.
+- **Lists can be shorter per row:** `ToJSONList` skips empty cells, so clearing `[1]` in a row drops that item from that row's list.
+- Lists can't grow past the columns the import created. For longer lists, add a column to the list block and widen its `ToJSONList` range.
+
+## How values are written
 - **Text stays text:** text cells use the plain text format, and text that would read back as something else (`"1"`, `"true"`, `"null"`, `""`, text starting with `=`) is written in quotes.
-- **Property names that can't be headers** (containing a dot, empty, or starting with `=` or `'`) keep their object as JSON text in one cell.
+- **Awkward property names** (containing a dot, empty, or starting with `=`, `'` or `"`) get a quoted header like `"key.with.dots"`, which `ToJSON` reads as one literal key.
+
+# Example JSONs
+[examples/](examples/) has JSONs for trying the importer. Use **Load from file** in the import dialog:
+
+| File | Shows |
+|---|---|
+| `01-simple-object.json` | A flat object: one block of columns |
+| `02-nested-object.json` | Nested objects flattened into dotted headers |
+| `03-table.json` | A list of same-shaped objects, each one its own block |
+| `04-mixed-list.json` | Mixed lists, lists of lists, `null` and booleans |
+| `05-bundle.json` | Nested lists of objects with different shapes |
+| `06-tricky-values.json` | Text that looks like numbers, booleans, `null`, formulas or JSON; empty values; awkward keys |
+| `07-config.json` | A settings file with nested lists and an empty list |
+| `08-big-table.json` | 400 items, about 2,800 columns and 29,000 characters of JSON in A3 |
+| `09-too-big.json` | 1,500 items: imports fine, but A3 shows the 50,000-character limit error |
+
+The tests check that every example comes back unchanged after an import.
 
 # Limits
 These come from Google Sheets:
-- **50,000 characters per cell.** That includes the JSON a formula returns, so very large JSONs give an error in A2 saying so. Split the data across several cells, or import parts of it separately.
-- **18,278 columns per sheet and 10 million cells per spreadsheet.** The importer checks these before writing anything.
+- **50,000 characters per cell.** That includes the JSON a formula returns, so very large JSONs give an error in A3 saying so. Split the data across several cells, or import parts of it separately.
+- **18,278 columns per sheet and 10 million cells per spreadsheet.** Every item of every list gets its own columns, so a list of a few thousand objects can run out of columns. The importer checks this before writing anything. Split very long lists into separate imports.
+- **Text that looks like a web address becomes a link,** e.g. the header `supplier.name` (`.name` is a real web domain ending). Sheets adds the link whenever such text is written, by hand, by a formula or by the importer, and puts it back if it's removed. It's only cosmetic: the cell still holds the plain text, and that's what `ToJSON` reads.
 - **Custom functions time out after 30 seconds.** Sheets with thousands of nested formulas can be slow to recalculate.
 
 # Development
@@ -161,10 +191,15 @@ src/
   UI.js                menu and import dialog
   ImportPopup.html     the import dialog
   appsscript.json      Apps Script manifest
+dev/
+  DevMenu.js           the dev menu, only pushed by npm run push:dev
+scripts/
+  build-dev.js         builds build/dev for npm run push:dev
 test/
   sheet-cases.test.js  the cases from the original test spreadsheet
   edge-cases.test.js   one test per bug and edge case
   importer.test.js     JSON → sheet → JSON round trips
+  dev-menu.test.js     the dev menu only appears in your own spreadsheet
   sheet-sim.js         a small Sheets stand-in that evaluates the formulas
   load.js              loads src/ the way Apps Script does
 ```
@@ -178,6 +213,14 @@ npm test
 Apps Script loads every file into one shared global scope; there are no imports. `test/load.js` does the same, then the tests call the custom functions with the same 2D arrays Sheets passes them. The importer tests lay a JSON out as a grid, evaluate it with `test/sheet-sim.js`, and check that the same JSON comes back. That simulator also turns untyped text like `007` into numbers, as Sheets does.
 
 The workflow: edit `src/`, run `npm test`, commit, then `npm run push`.
+
+## Dev menu
+`npm run push:dev` pushes a dev build (`build/dev`, gitignored): `src/` plus [dev/DevMenu.js](dev/DevMenu.js) and a generated file with the examples. After a reload, your spreadsheet gets a **JSONDerulo dev** menu. Opening the spreadsheet doesn't run anything by itself:
+
+- **Import missing examples** imports each file in `examples/` into its own `Example …` tab, skipping tabs that already exist. Each tab gets a check in A1 (`✓ matches` / `✗ differs`) comparing A3 with the original JSON, which is stored in row 1 after the last block.
+- **Re-import all examples** deletes the `Example …` tabs and imports them again with the current code.
+
+The menu only appears in the Apps Script project from your `.clasp.json`. A copy of the spreadsheet gets a new script ID, so the menu never shows up there. Run `npm run push` when you're done: it removes the dev files, which embed all the examples and slow down every script run while they're there.
 
 # License
 [GPL-3.0](LICENSE)

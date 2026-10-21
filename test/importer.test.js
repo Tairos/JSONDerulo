@@ -1,17 +1,19 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const ctx = require('./load').load();
-const { simulate } = require('./sheet-sim');
+const { simulate, fillDown } = require('./sheet-sim');
 
 // Arrays made inside the vm context have another prototype; compare plain copies.
 const plain = value => JSON.parse(JSON.stringify(value));
 
-// Imports the JSON, evaluates the sheet and checks it gives back the same JSON.
+// Imports the JSON, evaluates the sheet and checks it gives back the same JSON,
+// with both formula argument separators.
 function roundTrip(json) {
-  const layout = ctx.layoutJSON(json);
-  const result = simulate(ctx, layout).value(2, 1);
-  assert.strictEqual(result, JSON.stringify(json));
-  return layout;
+  for (const separator of [';', ',']) {
+    const layout = ctx.layoutJSON(json, separator);
+    assert.strictEqual(simulate(ctx, layout).value(3, 1), JSON.stringify(json));
+  }
+  return ctx.layoutJSON(json, ',');
 }
 
 const SHEET_JSONS = {
@@ -28,26 +30,64 @@ for (const [name, json] of Object.entries(SHEET_JSONS)) {
   test('round trip: ' + name, () => roundTrip(JSON.parse(json)));
 }
 
-test('layout of a simple object matches the original sheets', () => {
+test('an object is one row of values under its headers', () => {
   const layout = roundTrip({ a: 1, b: 'hello' });
-  assert.deepStrictEqual(plain(layout.values), [['JSON', 'a', 'b'], ['=ToJSON(B1:C2)', 1, 'hello']]);
+  assert.deepStrictEqual(plain(layout.values), [['', '', ''], ['JSON', 'a', 'b'], ['=ToJSON(B$2:C$2, B3:C3)', 1, 'hello']]);
 });
 
-test('a list of objects with the same properties becomes a table', () => {
-  const layout = roundTrip(JSON.parse(SHEET_JSONS['Derulo Test2']));
+test('the separator comes from the caller', () => {
+  assert.strictEqual(ctx.layoutJSON({ a: 1 }, ';').values[2][0], '=ToJSON(B$2:B$2; B3:B3)');
+});
+
+test('lists go sideways, and nested blocks come after an empty column with a title', () => {
+  const layout = roundTrip({ value: { Items: [{ a: 1 }, 'x'] } });
   assert.deepStrictEqual(plain(layout.values), [
-    ['JSON', '_size', '_weight'],
-    ['=ToJSON(B1:C5)', 'Small', 160],
-    ['', 'Medium', 650],
-    ['', 'Large', 160],
-    ['', 'Huge', 30],
+    ['', '', '', '↳ value.Items', '', '', '↳ value.Items[0]'],
+    ['JSON', 'value.Items', '', '[0]', '[1]', '', 'a'],
+    ['=ToJSON(B$2:B$2, B3:B3)', '=ToJSONList(D3:E3)', '', '=ToJSON(G$2:G$2, G3:G3)', 'x', '', 1],
   ]);
 });
 
-test('nested blocks are labelled with their path', () => {
-  const layout = roundTrip({ value: { Items: [{ a: 1 }, 'x'] } });
-  assert.deepStrictEqual(plain(layout.values[0]), ['JSON', 'value.Items', 'value.Items', 'items', 'value.Items[0]', 'a']);
-  assert.deepStrictEqual(plain(layout.values[1]), ['=ToJSON(B1:B2)', '=ToJSONList(D2:D3)', '', '=ToJSON(F1:F2)', '', 1]);
+test('awkward keys keep their quotes in titles', () => {
+  const layout = roundTrip({ 'key.with.dots': { kept: 'yes' } });
+  assert.deepStrictEqual(plain(layout.values), [
+    ['', '', '', '↳ "key.with.dots"'],
+    ['JSON', '"key.with.dots"', '', 'kept'],
+    ['=ToJSON(B$2:B$2, B3:B3)', '=ToJSON(D$2:D$2, D3:D3)', '', 'yes'],
+  ]);
+});
+
+test('every JSON fits on row 3, whatever its shape', () => {
+  for (const json of Object.values(SHEET_JSONS).map(j => JSON.parse(j))) {
+    assert.strictEqual(ctx.layoutJSON(json).rows, 3);
+  }
+});
+
+test('dragging row 3 down makes another JSON with the same structure', () => {
+  const layout = ctx.layoutJSON({ name: 'chair', price: 40, tags: ['wood', 'new'], size: { w: 1, h: 2 } });
+  assert.deepStrictEqual(plain(layout.values[1]), ['JSON', 'name', 'price', 'tags', 'size.w', 'size.h', '', '[0]', '[1]']);
+  const filled = fillDown(layout, 4, { B: 'lamp', C: 15, H: 'metal', I: '', E: 3 });
+  const sheet = simulate(ctx, filled);
+  assert.strictEqual(sheet.value(3, 1), '{"name":"chair","price":40,"tags":["wood","new"],"size":{"w":1,"h":2}}');
+  // An emptied list cell makes that row's list shorter.
+  assert.strictEqual(sheet.value(4, 1), '{"name":"lamp","price":15,"tags":["metal"],"size":{"w":3,"h":2}}');
+});
+
+test('dragging down works for nested lists of objects too', () => {
+  const json = JSON.parse(SHEET_JSONS['Derulo Test4']);
+  const layout = ctx.layoutJSON(json, ';');
+  const filled = fillDown(fillDown(layout, 4), 5);
+  const sheet = simulate(ctx, filled);
+  assert.strictEqual(sheet.value(4, 1), JSON.stringify(json));
+  assert.strictEqual(sheet.value(5, 1), JSON.stringify(json));
+});
+
+test('formula separator follows the spreadsheet locale', () => {
+  const separators = ['en_US', 'en_GB', 'es_ES', 'es_MX', 'pt_BR', 'de_DE', 'de_CH', 'fr_FR', 'ja_JP', 'xx_YY', '']
+    .map(locale => locale + ' ' + ctx.formulaSeparator(locale));
+  assert.deepStrictEqual(plain(separators), [
+    'en_US ,', 'en_GB ,', 'es_ES ;', 'es_MX ,', 'pt_BR ;', 'de_DE ;', 'de_CH ,', 'fr_FR ;', 'ja_JP ,', 'xx_YY ,', ' ,',
+  ]);
 });
 
 test('strings that would read back as something else', () => {
@@ -85,7 +125,7 @@ test('lists of lists and single-item lists', () => {
   roundTrip({ one: [{ a: 1 }], two: [[1]] });
 });
 
-test('tables are only used when every object has the same properties', () => {
+test('lists of objects with the same or different properties', () => {
   roundTrip([{ a: 1, b: 2 }, { b: 2, a: 1 }]);
   roundTrip([{ a: 1 }, { a: 1, b: 2 }]);
   roundTrip([{ a: { x: 1 } }, { a: { x: 2 } }]);
@@ -96,20 +136,18 @@ test('tables are only used when every object has the same properties', () => {
 test('root values that are not objects or lists', () => {
   for (const json of [5, 'text', '1', true, null]) {
     const layout = ctx.layoutJSON(json);
-    assert.strictEqual(layout.values[1][0], JSON.stringify(json));
+    assert.strictEqual(layout.values[2][0], JSON.stringify(json));
   }
 });
 
-test('big JSON: a 5000-row table stays narrow', () => {
+test('big JSON: very long lists need more columns than a sheet has', () => {
   const rows = Array.from({ length: 5000 }, (_, i) => ({ id: 'item_' + i, weight: i, meta: { tier: i % 5, tag: 'x' + i } }));
   const layout = ctx.layoutJSON(rows);
-  assert.strictEqual(layout.columns, 5);
-  assert.strictEqual(layout.rows, 5001);
-  // The result is over the cell limit, so the root formula says so.
-  assert.throws(() => simulate(ctx, layout).value(2, 1), /holds at most 50000/);
+  assert.strictEqual(layout.rows, 3);
+  assert.ok(layout.columns > 18278, 'columns: ' + layout.columns);
 });
 
-test('big JSON: 300 mixed stock', () => {
+test('big JSON: 300 mixed items', () => {
   const kinds = [
     i => ({ value: { _sku: 'chair' + i, _isFragile: i % 2 == 0 }, type: 'FurnitureItem' }),
     i => ({ value: { Value: { Amount: i * 100, Currency: 'g' } }, type: 'GiftCard' }),
@@ -120,4 +158,23 @@ test('big JSON: 300 mixed stock', () => {
 
 test('column letters', () => {
   assert.deepStrictEqual([1, 26, 27, 52, 703, 18278].map(n => ctx.columnA1(n)), ['A', 'Z', 'AA', 'AZ', 'AAA', 'ZZZ']);
+});
+
+test('every file in examples/ round trips', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const dir = path.join(__dirname, '..', 'examples');
+  for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.json'))) {
+    const json = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8'));
+    if (file.includes('too-big')) {
+      assert.throws(() => simulate(ctx, ctx.layoutJSON(json)).value(3, 1), /holds at most 50000/, file);
+    } else {
+      roundTrip(json);
+    }
+  }
+});
+
+test('awkward property names get quoted headers instead of collapsing the object', () => {
+  const layout = roundTrip({ 'key.with.dots': 1, plain: 2, '': 3, '"q"': 4, nested: { 'a.b': { c: 5 } } });
+  assert.deepStrictEqual(plain(layout.values[1]).slice(0, 6), ['JSON', '"key.with.dots"', 'plain', '""', '"\\"q\\""', 'nested']);
 });

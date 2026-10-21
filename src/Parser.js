@@ -54,9 +54,8 @@ function parseToObject(properties, values) {
     }
 
     var name = propertyName(properties[i], i + 1);
-    // Only text is split on dots: a number like 1.5 is a single key.
-    var keys = isString(properties[i]) ? name.split(".") : [name];
-    if (keys.some(key => key.length == 0)) {
+    var keys = propertyKeys(properties[i], name);
+    if (keys.some(key => key.length == 0) && !isQuotedProperty(name)) {
       throw new Error('Property "' + name + '" has an empty part');
     }
 
@@ -64,6 +63,28 @@ function parseToObject(properties, values) {
   }
 
   return result;
+}
+
+// A property in quotes, like "a.b", is one literal key. Other text is split
+// on dots; a number like 1.5 is a single key.
+function propertyKeys(property, name) {
+  if (isQuotedProperty(name)) {
+    return [JSON.parse(name.trim())];
+  }
+  return isString(property) ? name.split(".") : [name];
+}
+
+function isQuotedProperty(name) {
+  if (!isStringJSONString(name.trim())) {
+    return false;
+  }
+
+  try {
+    return isString(JSON.parse(name.trim()));
+  }
+  catch (e) {
+    return false;
+  }
 }
 
 function parseInObject(object, keys, value, name) {

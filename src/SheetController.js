@@ -4,7 +4,8 @@ var MAX_SPREADSHEET_CELLS = 10000000;
 
 // Writes the JSON on a new tab and returns the tab's name.
 function createNewSheet(json, name) {
-  var layout = layoutJSON(json);
+  var locale = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetLocale();
+  var layout = layoutJSON(json, formulaSeparator(locale));
   if (layout.columns > MAX_SHEET_COLUMNS) {
     throw new Error("This JSON needs " + layout.columns + " columns, but a sheet holds at most " + MAX_SHEET_COLUMNS);
   }
@@ -23,8 +24,10 @@ function createNewSheet(json, name) {
   range.setNumberFormats(formats);
   range.setValues(layout.values);
 
-  sheet.getRange(1, 1, 1, layout.columns).setFontWeight("bold");
-  sheet.setFrozenRows(1);
+  // Titles say where a block comes from; headers are what ToJSON reads.
+  sheet.getRange(TITLE_ROW, 1, 1, layout.columns).setFontStyle("italic").setFontColor("#80868b");
+  sheet.getRange(HEADER_ROW, 1, 1, layout.columns).setFontWeight("bold");
+  sheet.setFrozenRows(HEADER_ROW);
   SpreadsheetApp.flush();
   return sheet.getName();
 }

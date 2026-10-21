@@ -1,0 +1,45 @@
+{
+  "value": {
+    "id": 7,
+    "Items": [
+      {
+        "value": {
+          "_sku": "chair-m",
+          "_isFragile": false,
+          "_giftWrap": true
+        },
+        "type": "FurnitureItem"
+      },
+      {
+        "value": {
+          "Value": {
+            "Amount": 50000,
+            "Currency": "EUR"
+          },
+          "Rounding": "RoundUp"
+        },
+        "type": "GiftCard"
+      },
+      {
+        "value": {
+          "Value": {
+            "Amount": 60000,
+            "Currency": "USD"
+          },
+          "Rounding": "RoundUp"
+        },
+        "type": "GiftCard"
+      },
+      {
+        "value": {
+          "Reference": "coupon-8",
+          "Amount": 8,
+          "Mode": "PercentOff"
+        },
+        "type": "Discount"
+      }
+    ],
+    "count": 5
+  },
+  "type": "Bundle"
+}

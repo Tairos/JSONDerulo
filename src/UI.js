@@ -3,6 +3,11 @@ function onOpen() {
     .createMenu("JSONDerulo")
     .addItem("Create sheet from JSON", "showJSONImportPopup")
     .addToUi();
+
+  // Only defined by the dev build (npm run push:dev): adds the dev menu.
+  if (typeof onOpenDev === "function") {
+    onOpenDev();
+  }
 }
 
 function showJSONImportPopup() {

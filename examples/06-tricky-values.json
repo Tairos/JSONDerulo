@@ -1,0 +1,23 @@
+{
+  "2020": "number-like key",
+  "zipCode": "08001",
+  "version": "1.10",
+  "flagAsText": "true",
+  "nullAsText": "null",
+  "realNull": null,
+  "empty": "",
+  "formulaLike": "=SUM(A1:A3)",
+  "apostrophe": "'quoted'",
+  "quotes": "\"in quotes\"",
+  "jsonAsText": "{\"not\":\"parsed\"}",
+  "braces": "{player} joined",
+  "dateAsText": "2024-01-31",
+  "percent": "50%",
+  "multiline": "line 1\nline 2",
+  "unicode": "ñandú 🐦",
+  "emptyObject": {},
+  "emptyList": [],
+  "key.with.dots": {
+    "kept": "under a literal key"
+  }
+}

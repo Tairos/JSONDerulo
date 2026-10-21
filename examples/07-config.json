@@ -1,0 +1,33 @@
+{
+  "retry_delay": 5,
+  "retry_backoff": 0.2,
+  "timeout": 10,
+  "max_retries": 4,
+  "cache_ttl": 30,
+  "servers": {
+    "value": {
+      "_value": [
+        {
+          "Host": "eu-west",
+          "Weight": 1
+        },
+        {
+          "Host": "us-east",
+          "Weight": 2,
+          "backup": true
+        }
+      ]
+    },
+    "type": "ServerListConfig"
+  },
+  "features": {
+    "search": {
+      "enabled": true,
+      "providers": [
+        "local",
+        "remote"
+      ]
+    },
+    "beta": []
+  }
+}
